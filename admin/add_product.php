@@ -1,5 +1,10 @@
 <?php
 session_start();
+// --- SECURITY: Prevent Browser Back Button Issue ---
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+
 if (!isset($_SESSION['admin_name'])) { header("Location: login.php"); exit(); }
 
 include '../database/db.php';
@@ -18,8 +23,9 @@ if (isset($_POST['upload_btn'])) {
     $safe_image_name = basename($image_name); 
     $target_folder = "../uploads/" . $safe_image_name;
 
-    $sql = "INSERT INTO products (name, price, image, details, category_id) 
-            VALUES ('$name', '$price', '$safe_image_name', '$details', '$cat_id')";
+    // product_tag ko 'New' set kar rahe hain by default
+    $sql = "INSERT INTO products (name, price, image, details, category_id, product_tag) 
+        VALUES ('$name', '$price', '$safe_image_name', '$details', '$cat_id', 'New')";
 
     if (move_uploaded_file($temp_name, $target_folder)) {
         if(mysqli_query($conn, $sql)){

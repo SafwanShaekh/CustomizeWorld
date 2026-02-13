@@ -1,126 +1,133 @@
-<style>
-    /* --- CUSTOM SCROLLBAR FOR DROPDOWN --- */
-    .custom-scroll { scrollbar-width: thin; scrollbar-color: #E91E63 #f5f5f5; }
-    .custom-scroll::-webkit-scrollbar { width: 8px; }
-    .custom-scroll::-webkit-scrollbar-track { background: #f5f5f5; border-radius: 10px; }
-    .custom-scroll::-webkit-scrollbar-thumb { background-color: #E91E63; border-radius: 10px; border: 2px solid #f5f5f5; }
-    .custom-scroll::-webkit-scrollbar-thumb:hover { background-color: #C2185B; }
-</style>
-
-<?php
-// Get Current Page Name (e.g., index.php, about-us.php)
-$page = basename($_SERVER['PHP_SELF']);
-?>
-
-<header class="main-header-area">
-    <div class="main-header header-transparent header-sticky">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-lg-2 col-xl-2 col-md-6 col-6 col-custom">
-                    <div class="header-logo d-flex align-items-center">
-                        <a href="index.php">
-                            <img class="img-full" src="assets/images/logo/logo.png" alt="Header Logo">
-                        </a>
-                    </div>
-                </div>
-                <div class="col-lg-8 d-none d-lg-flex justify-content-center col-custom">
-                    <nav class="main-nav d-none d-lg-flex">
-                        <ul class="nav">
-                            <li>
-                                <a class="<?php echo ($page == 'index.php') ? 'active' : ''; ?>" href="index.php">
-                                    <span class="menu-text"> Home</span>
-                                </a>
-                            </li>
-
-                            <li>
-                                <a class="<?php echo ($page == 'shop.php') ? 'active' : ''; ?>" href="#">
-                                    <span class="menu-text"> All Categories</span>
-                                    <i class="fa fa-angle-down"></i>
-                                </a>
-                                <ul class="dropdown-submenu dropdown-hover custom-scroll" style="max-height: 240px; overflow-y: auto; min-width: 220px;">
-                                    <?php
-                                    if(isset($conn)){
-                                        $cat_sql = "SELECT * FROM categories ORDER BY id DESC";
-                                        $cat_res = mysqli_query($conn, $cat_sql);
-                                        if(mysqli_num_rows($cat_res) > 0){
-                                            while($cat = mysqli_fetch_assoc($cat_res)){
-                                                ?>
-                                                <li>
-                                                    <a href="shop.php?category=<?php echo $cat['id']; ?>">
-                                                        <?php echo $cat['cat_name']; ?>
-                                                    </a>
-                                                </li>
-                                                <?php
-                                            }
-                                        } else {
-                                            echo "<li><a href='#'>No Categories Yet</a></li>";
-                                        }
-                                    }
-                                    ?>
-                                </ul>
-                            </li>
-
-                            <li>
-                                <a class="<?php echo ($page == 'about-us.php') ? 'active' : ''; ?>" href="about-us.php">
-                                    <span class="menu-text"> About Us</span>
-                                </a>
-                            </li>
-
-                            <li>
-                                <a class="<?php echo ($page == 'contact-us.php') ? 'active' : ''; ?>" href="contact-us.php">
-                                    <span class="menu-text">Contact Us</span>
-                                </a>
-                            </li>
-                        </ul> 
-                    </nav>
-                </div>
-
-                <div class="col-lg-2 col-md-6 col-6 col-custom">
-                    <div class="header-right-area main-nav">
-                        <ul class="nav">
-                            <li class="mobile-menu-btn d-lg-none">
-                                <a class="off-canvas-btn" href="#"><i class="fa fa-bars"></i></a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-                
-            </div>
+    <!-- preloader -->
+    <div class="preloader">
+        <div class="loader-ripple">
+            <div></div>
+            <div></div>
         </div>
     </div>
-    <aside class="off-canvas-wrapper" id="mobileMenu">
-        <div class="off-canvas-overlay"></div>
-        <div class="off-canvas-inner-content">
-            <div class="btn-close-off-canvas"><i class="fa fa-times"></i></div>
-            <div class="off-canvas-inner">
-                <div class="mobile-navigation">
-                <nav>
-                    <ul class="mobile-menu">
-                        <li><a href="index.php">Home</a></li>
+    <!-- preloader end -->
 
-                        <li class="menu-item-has-children"><a href="#">All Categories</a>
-                            <ul class="dropdown">
-                                <?php
-                                if(isset($conn)){
-                                    $m_cat_res = mysqli_query($conn, "SELECT * FROM categories ORDER BY id DESC");
-                                    if(mysqli_num_rows($m_cat_res) > 0){
-                                        while($m_row = mysqli_fetch_assoc($m_cat_res)){
-                                            echo "<li><a href='shop.php?category=".$m_row['id']."'>".$m_row['cat_name']."</a></li>";
-                                        }
-                                    } else {
-                                        echo '<li><a href="#">No Categories Found</a></li>';
-                                    }
-                                }
-                                ?>
-                            </ul>
-                        </li>
 
-                        <li><a href="about-us.php">About Us</a></li>
-                        <li><a href="contact-us.php">Contact</a></li>
-                    </ul> 
-                </nav>
+    <!-- header area -->
+    <header class="header">
+
+        <!-- header top -->
+        <div class="header-top">
+            <div class="container">
+                <div class="header-top-wrapper">
+                    <div class="row">
+                        <div class="col-12 col-md-6 col-lg-6 col-xl-5">
+                            <div class="header-top-left">
+                                <ul class="header-top-list">
+                                    <li><a href="mailto:tshumaila58@gmail.com"><i class="far fa-envelopes"></i>
+                                            <span class="__cf_email__">tshumaila58@gmail.com</span></a></li>
+                                    <li><a href="https://wa.me/923350391951"><i class="far fa-headset"></i> +92 335 0391951</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg-6 col-xl-7">
+                            <div class="header-top-right">
+                                <ul class="header-top-list">
+                                    <li class="social">
+                                        <div class="header-top-social">
+                                            <span>Follow Us: </span>
+                                            <a href="https://www.facebook.com/share/1BfUiUneiH/?mibextid=wwXIfr"><i class="fab fa-facebook"></i></a>
+                                            <a href="https://www.instagram.com/customizeworld8"><i class="fab fa-instagram"></i></a>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </aside>
+        <!-- header top end -->
+
+        <!-- navbar -->
+        <div class="main-navigation">
+            <nav class="navbar navbar-expand-lg">
+                <div class="container position-relative">
+                    <a class="navbar-brand" href="index.php">
+                        <img src="assets/img/logo/logo.png" alt="logo" style = "width: 176px; height: 112px; margin-top: -10px; margin-bottom: -10px;">
+                    </a>
+                    <div class="mobile-menu-right">
+                        <div class="mobile-menu-btn">
+                            <a href="#" class="nav-right-link search-box-outer"><i class="far fa-search"></i></a>
+                        </div>
+                        <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas"
+                            data-bs-target="#offcanvasNavbar" aria-controls="offcanvasNavbar"
+                            aria-label="Toggle navigation">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </button>
+                    </div>
+                    <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasNavbar"
+                        aria-labelledby="offcanvasNavbarLabel">
+                        <div class="offcanvas-header">
+                            <a href="index-2.html" class="offcanvas-brand" id="offcanvasNavbarLabel">
+                                <img src="assets/img/logo/logo.png" alt="">
+                            </a>
+                            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"
+                                aria-label="Close"></button>
+                        </div>
+                        <div class="offcanvas-body">
+                            <?php 
+                                // Current page ka naam uthao (e.g. index.php, shop.php)
+                                $current_page = basename($_SERVER['PHP_SELF']); 
+                            ?>
+
+                            <ul class="navbar-nav justify-content-end flex-grow-1 pe-lg-5">
+
+                                <li class="nav-item">
+                                    <a class="nav-link <?php echo ($current_page == 'index.php') ? 'active' : ''; ?>" href="index.php">Home</a>
+                                </li>
+
+                                <li class="nav-item">
+                                    <a class="nav-link <?php echo ($current_page == 'shop.php') ? 'active' : ''; ?>" href="shop.php">Shop</a>
+                                </li>
+
+                                <li class="nav-item">
+                                    <a class="nav-link <?php echo ($current_page == 'about-us.php') ? 'active' : ''; ?>" href="about-us.php">About</a>
+                                </li>
+
+                                <li class="nav-item">
+                                    <a class="nav-link <?php echo ($current_page == 'contact-us.php') ? 'active' : ''; ?>" href="contact-us.php">Contact</a>
+                                </li>
+
+                            </ul>
+                            <!-- nav-right -->
+                            <div class="nav-right">
+                                <ul class="nav-right-list">
+                                    <li>
+                                        <a href="#" class="list-link search-box-outer">
+                                            <i class="far fa-search"></i>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+        </div>
+        <!-- navbar end -->
+
     </header>
+    <!-- header area end -->
+
+
+    <!-- popup search -->
+    <div class="search-popup">
+        <button class="close-search"><span class="far fa-times"></span></button>
+
+        <form action="shop.php" method="GET">
+            <div class="form-group">
+                <input type="search" name="search" class="form-control" placeholder="Search Here..." required>
+                <button type="submit"><i class="far fa-search"></i></button>
+            </div>
+        </form>
+    </div>
+    <!-- popup search end -->

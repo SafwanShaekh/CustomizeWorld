@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Feb 08, 2026 at 04:58 PM
+-- Generation Time: Feb 13, 2026 at 05:26 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -38,7 +38,7 @@ CREATE TABLE `admins` (
 --
 
 INSERT INTO `admins` (`id`, `username`, `password`) VALUES
-(1, 'admin', 'admin123');
+(2, 'admin', '$2y$10$cVm7OD1XcAh5cJUORyDoc.avkTwW4oaCuiqNt.E02qNYr0yId5.O6');
 
 -- --------------------------------------------------------
 
@@ -79,7 +79,8 @@ CREATE TABLE `products` (
   `image` varchar(255) DEFAULT NULL,
   `details` text DEFAULT NULL,
   `category_id` int(11) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `product_tag` varchar(100) DEFAULT 'New'
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 --
@@ -118,7 +119,7 @@ ALTER TABLE `products`
 -- AUTO_INCREMENT for table `admins`
 --
 ALTER TABLE `admins`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `categories`

@@ -1,281 +1,288 @@
-<?php
-include 'database/db.php';
+<?php 
+include "database/db.php"; 
 
-// --- CONFIGURATION ---
-$limit = 12; 
+// --- 1. DETERMINE VIEW & LIMIT (Moved to Top) ---
+$view_mode = isset($_GET['view']) ? $_GET['view'] : 'grid';
+
+// Dynamic Limit based on View
+if ($view_mode == 'list') {
+    $limit = 5;  // List View mein 5 items
+} else {
+    $limit = 12; // Grid View mein 12 items
+}
+
+// --- 2. PAGINATION CONFIG ---
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 if ($page < 1) $page = 1;
 $offset = ($page - 1) * $limit;
 
-// --- FILTER VARIABLES ---
-$cat_id = isset($_GET['category']) ? $_GET['category'] : '';
-$search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
-$min_price = isset($_GET['min_price']) ? (int)$_GET['min_price'] : '';
-$max_price = isset($_GET['max_price']) ? (int)$_GET['max_price'] : '';
+// --- 3. FILTERS LOGIC ---
+$whereClauses = [];
+$whereClauses[] = "1=1"; 
 
-// Check karo ke kya koi EXTRA filter laga hai? (Category ke ilawa)
-$is_filtered = !empty($search) || !empty($min_price) || !empty($max_price);
+// A. Search
+if (isset($_GET['search']) && !empty($_GET['search'])) {
+    $search = mysqli_real_escape_string($conn, $_GET['search']);
+    $whereClauses[] = "name LIKE '%$search%'";
+}
 
-$page_title = "All Products"; 
+// B. Category
+if (isset($_GET['category']) && !empty($_GET['category'])) {
+    $cat_id = (int)$_GET['category'];
+    $whereClauses[] = "category_id = '$cat_id'";
+}
 
-// --- BUILD QUERY ---
-$where_conditions = [];
+// C. Price
+$min_price_default = 0;
+$max_price_default = 10000;
+$min_price = isset($_GET['min_price']) ? (int)$_GET['min_price'] : $min_price_default;
+$max_price = isset($_GET['max_price']) ? (int)$_GET['max_price'] : $max_price_default;
 
-if (!empty($cat_id)) {
-    $cat_sql = "SELECT cat_name FROM categories WHERE id = '$cat_id'";
-    $cat_res = mysqli_query($conn, $cat_sql);
-    if ($cat_row = mysqli_fetch_assoc($cat_res)) {
-        $page_title = $cat_row['cat_name'];
+if (isset($_GET['min_price']) || isset($_GET['max_price'])) {
+    $whereClauses[] = "price BETWEEN $min_price AND $max_price";
+}
+
+// D. Tags
+$selected_tags = [];
+if (isset($_GET['tags']) && !empty($_GET['tags'])) {
+    if(is_string($_GET['tags'])) {
+        $selected_tags = explode(',', $_GET['tags']);
+    } elseif(is_array($_GET['tags'])){
+        $selected_tags = $_GET['tags'];
     }
-    $where_conditions[] = "category_id = '$cat_id'";
+
+    if(!empty($selected_tags)){
+        $safe_tags = array_map(function($t) use ($conn) { 
+            return "'" . mysqli_real_escape_string($conn, $t) . "'"; 
+        }, $selected_tags);
+        $tags_str = implode(',', $safe_tags);
+        $whereClauses[] = "product_tag IN ($tags_str)";
+    }
 }
 
-if (!empty($search)) { $where_conditions[] = "name LIKE '%$search%'"; }
-if (!empty($min_price)) { $where_conditions[] = "price >= $min_price"; }
-if (!empty($max_price)) { $where_conditions[] = "price <= $max_price"; }
+// --- 4. SORTING LOGIC ---
+$sort_option = isset($_GET['sort']) ? $_GET['sort'] : '1';
+$orderBy = "ORDER BY id DESC";
 
-$where_clause = "";
-if (count($where_conditions) > 0) {
-    $where_clause = "WHERE " . implode(' AND ', $where_conditions);
+switch($sort_option){
+    case '1': $orderBy = "ORDER BY id DESC"; break;
+    case '5': $orderBy = "ORDER BY id DESC"; break;
+    case '2': $orderBy = "ORDER BY RAND()"; break; 
+    case '3': $orderBy = "ORDER BY price ASC"; break;
+    case '4': $orderBy = "ORDER BY price DESC"; break;
 }
 
-// --- QUERIES ---
-$count_sql = "SELECT COUNT(*) FROM products $where_clause";
+// --- 5. FINAL QUERY & COUNTS ---
+$whereSQL = " WHERE " . implode(' AND ', $whereClauses);
+
+// Count Total Results
+$count_sql = "SELECT COUNT(*) as total FROM products $whereSQL";
 $count_res = mysqli_query($conn, $count_sql);
-$total_rows = mysqli_fetch_array($count_res)[0];
+$total_rows = mysqli_fetch_assoc($count_res)['total'];
+
+// Calculate Total Pages (Dynamic Limit use ho raha hai)
 $total_pages = ceil($total_rows / $limit);
 
-// JOIN lagaya hai taake category ka naam bhi mile
-$prod_sql = "SELECT products.*, categories.cat_name 
-             FROM products 
-             LEFT JOIN categories ON products.category_id = categories.id 
-             $where_clause 
-             ORDER BY products.id DESC LIMIT $limit OFFSET $offset";
-$prod_res = mysqli_query($conn, $prod_sql);
+// Range Display (Showing 1-5 or 1-12)
+$start = ($total_rows > 0) ? $offset + 1 : 0;
+$end = min($offset + $limit, $total_rows);
 ?>
 
-<!doctype html>
-<html class="no-js" lang="en">
+<!DOCTYPE html>
+<html lang="en">
+
+
+<!-- Mirrored from live.themewild.com/gifoy/shop-grid.html by HTTrack Website Copier/3.x [XR&CO'2014], Tue, 10 Feb 2026 16:13:14 GMT -->
 <head>
-    <meta charset="utf-8">
-    <meta http-equiv="x-ua-compatible" content="ie=edge">
-    <title><?php echo $page_title; ?> - FloSun</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <link rel="shortcut icon" type="image/x-icon" href="assets/images/favicon.ico">
-    <link rel="stylesheet" href="assets/css/vendor/bootstrap.min.css">
-    <link rel="stylesheet" href="assets/css/vendor/font.awesome.min.css">
-    <link rel="stylesheet" href="assets/css/vendor/linearicons.min.css">
-    <link rel="stylesheet" href="assets/css/plugins/swiper-bundle.min.css">
+    <!-- meta tags -->
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="keywords" content="">
+
+    <!-- title -->
+    <title>Customize World</title>
+
+    <!-- favicon -->
+    <link rel="icon" type="image/x-icon" href="assets/img/logo/favicon.png">
+
+    <!-- css -->
+    <link rel="stylesheet" href="assets/css/bootstrap.min.css">
+    <link rel="stylesheet" href="assets/css/all-fontawesome.min.css">
+    <link rel="stylesheet" href="assets/css/animate.min.css">
+    <link rel="stylesheet" href="assets/css/magnific-popup.min.css">
+    <link rel="stylesheet" href="assets/css/owl.carousel.min.css">
+    <link rel="stylesheet" href="assets/css/jquery-ui.min.css">
+    <link rel="stylesheet" href="assets/css/nice-select.min.css">
     <link rel="stylesheet" href="assets/css/style.css">
-    
+
     <style>
-        .pagination-area { margin-top: 50px; display: flex; justify-content: center; }
-        .page-link-custom {
-            display: inline-block; padding: 10px 18px; margin: 0 5px; background: #fff; 
-            border: 1px solid #ddd; color: #333; border-radius: 5px; transition: 0.3s;
-            font-weight: 600; text-decoration: none;
-        }
-        .page-link-custom.active, .page-link-custom:hover {
-            background-color: #E91E63; color: white; border-color: #E91E63;
-        }
-        .breadcrumb-area {
-            background-image: url('assets/images/bg/breadcrumb.jpg'); 
-            background-size: cover; background-position: center center; opacity: 0.7;
-            min-height: 276px; display: flex; align-items: center; justify-content: center;
-            padding-top: 80px; 
-        }
-        .breadcrumb-title {
-            color: #030202; font-size: 48px; font-weight: 700;
-            font-family: 'Great Vibes', cursive; position: relative !important; margin: 0;
-            text-shadow: 2px 2px 4px rgba(255,255,255,0.5);
-        }
-        .filter-box {
-            background: #fff; padding: 25px; border-radius: 8px; 
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-bottom: 40px; border: 1px solid #eee;
-        }
-        .filter-box label { font-weight: 600; margin-bottom: 5px; font-size: 14px; color: #555; }
-        .filter-box input { border-radius: 4px; border: 1px solid #ddd; height: 45px; }
-
-        /* --- 3D FLIP CARD DESIGN --- */
-        .flip-card {
-            background-color: transparent;
-            width: 100%;
-            height: 380px; /* Card ki height */
-            perspective: 1000px; /* 3D effect ke liye zaroori */
-            margin-bottom: 30px;
-        }
-
-        .flip-card-inner {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            text-align: center;
-            transition: transform 0.6s;
-            transform-style: preserve-3d;
-            border-radius: 15px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-
-        /* Hover karne par ghoomega */
-        .flip-card:hover .flip-card-inner {
-            transform: rotateY(180deg);
-        }
-
-        .flip-card-front, .flip-card-back {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
-            border-radius: 15px;
-            overflow: hidden;
-        }
-
-        /* --- FRONT SIDE (Sirf Image) --- */
-        .flip-card-front {
-            background-color: #fff;
-        }
-        .flip-card-front img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover; /* Image stretch nahi hogi */
-        }
-
-        /* --- BACK SIDE (Details + Glow) --- */
-        .flip-card-back {
-            background-color: white; /* Background color */
-            color: #333;
-            transform: rotateY(180deg);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            border: 2px solid #E91E63; /* Pink Border */
-
-            /* GLOW EFFECT */
-            box-shadow: 0 0 15px rgba(233, 30, 99, 0.6); 
-        }
-
-        /* Details Styling */
-        .flip-category {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #777;
-            margin-bottom: 5px;
-        }
-        .flip-title {
-            font-size: 20px;
-            font-weight: 700;
-            margin-bottom: 10px;
-            color: #333;
-        }
-        .flip-price {
-            font-size: 22px;
-            color: #E91E63;
-            font-weight: bold;
-            margin-bottom: 15px;
-        }
-        .flip-details {
-            font-size: 13px;
-            color: #666;
-            margin-bottom: 20px;
-            line-height: 1.4;
-            display: -webkit-box;
-            -webkit-line-clamp: 3; /* Sirf 3 lines show karega details ki */
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        /* WhatsApp Button */
-        .btn-flip-order {
-            background-color: #25D366;
-            color: white;
-            padding: 10px 25px;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: 600;
-            box-shadow: 0 4px 10px rgba(37, 211, 102, 0.4);
-            transition: 0.3s;
-        }
-        .btn-flip-order:hover {
-            background-color: #128C7E;
-            color: white;
-            transform: scale(1.05);
-        }
-
-        /* --- PRODUCT MODAL DESIGN --- */
-        .product-modal-overlay {
-            display: none; /* Hidden by default */
-            position: fixed; z-index: 9999;
-            left: 0; top: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.7); /* Dark background */
-            align-items: center; justify-content: center;
-            backdrop-filter: blur(5px); /* Background Blur effect */
-        }
-
-        .product-modal-box {
-            background: #fff;
-            width: 90%; max-width: 800px;
-            border-radius: 15px;
-            overflow: hidden;
-            display: flex;
-            position: relative;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            animation: zoomIn 0.3s ease;
-        }
-
-        @keyframes zoomIn { from {transform: scale(0.8); opacity: 0;} to {transform: scale(1); opacity: 1;} }
-
-        /* Left Side: Image */
-        .pm-img-col {
-            width: 50%;
-            background: #f9f9f9;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .pm-img-col img {
-            width: 100%; height: 100%; object-fit: cover;
-            max-height: 500px;
-        }
-
-        /* Right Side: Details */
-        .pm-info-col {
-            width: 50%; padding: 30px;
-            display: flex; flex-direction: column;
-        }
-
-        .pm-close {
-            position: absolute; right: 20px; top: 15px;
-            font-size: 28px; cursor: pointer; color: #aaa; z-index: 10;
-        }
-        .pm-close:hover { color: #E91E63; }
-
-        .pm-cat { color: #888; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
-        .pm-title { font-size: 26px; font-weight: 700; color: #333; margin-bottom: 10px; }
-        .pm-price { font-size: 24px; color: #E91E63; font-weight: bold; margin-bottom: 20px; }
-
-        /* --- CUSTOM SCROLLBAR FOR DESCRIPTION --- */
-        .pm-desc-box {
-            max-height: 200px; /* Is se zyada hua to scroll ayega */
+        /* Custom Pink Scrollbar for Categories */
+        .shop-category-list.scroll-active {
+            max-height: 320px; /* Approx 7-8 items ki height */
             overflow-y: auto;
-            margin-bottom: 25px;
-            font-size: 15px; color: #555; line-height: 1.6;
-            padding-right: 10px; /* Scrollbar ke liye jagah */
+            padding-right: 5px; /* Scrollbar ke liye thori jagah */
         }
 
-        /* Wahi same Scrollbar Design */
-        .pm-desc-box::-webkit-scrollbar { width: 5px; }
-        .pm-desc-box::-webkit-scrollbar-track { background: #f1f1f1; }
-        .pm-desc-box::-webkit-scrollbar-thumb { background: #E91E63; border-radius: 5px; }
-        .pm-desc-box::-webkit-scrollbar-thumb:hover { background: #c2185b; }
-
-        /* Responsive: Mobile par stack ho jaye */
-        @media (max-width: 768px) {
-            .product-modal-box { flex-direction: column; height: 90vh; overflow-y: auto; }
-            .pm-img-col, .pm-info-col { width: 100%; }
-            .pm-img-col { height: 250px; }
+        /* Scrollbar Design */
+        .shop-category-list.scroll-active::-webkit-scrollbar {
+            width: 3.5px;
         }
+        .shop-category-list.scroll-active::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .shop-category-list.scroll-active::-webkit-scrollbar-thumb {
+            background-color: var(--theme-color, #ff2c55); /* Theme Pink Color */
+            border-radius: 10px;
+        }
+        .shop-category-list.scroll-active::-webkit-scrollbar-thumb:hover {
+            background-color: #d62243;
+        }
+
+        /* --- Custom List View Design --- */
+    .custom-list-card {
+        display: flex;
+        align-items: center;
+        background: #fff;
+        border: 1px solid #f4f4f4;
+        border-radius: 20px;
+        padding: 15px;
+        margin-bottom: 25px;
+        transition: 0.3s;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.03);
+    }
+    
+    .custom-list-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    }
+
+    /* Image Section */
+    .custom-list-img-box {
+        flex: 0 0 300px; /* Fixed width for image box */
+        max-width: 300px;
+        background: #fff0f5; /* Light Pink Background like screenshot */
+        border-radius: 15px;
+        padding: 20px;
+        position: relative;
+        text-align: center;
+        overflow: hidden; /* For hover effect */
+    }
+
+    .custom-list-img-box img {
+        height: 220px;
+        width: 100%;
+        object-fit: contain; /* Product poora nazar aye */
+        mix-blend-mode: multiply; /* Agar white bg image ho to blend hojaye */
+    }
+
+    /* Eye Button Hover Effect */
+    .hover-eye-btn {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(0);
+        background: #fff;
+        width: 45px;
+        height: 45px;
+        line-height: 45px;
+        text-align: center;
+        border-radius: 50%;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        color: var(--theme-color);
+        opacity: 0;
+        transition: 0.4s ease;
+        z-index: 2;
+    }
+    
+    .custom-list-img-box:hover .hover-eye-btn {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+
+    /* Content Section */
+    .custom-list-content {
+        flex: 1;
+        padding-left: 40px;
+        position: relative;
+    }
+
+    .custom-list-title {
+        font-size: 22px;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 10px;
+        text-decoration: none;
+        display: block;
+    }
+
+    .custom-list-desc {
+        color: #777;
+        font-size: 15px;
+        line-height: 1.7;
+        margin-bottom: 20px;
+        display: -webkit-box;
+        -webkit-line-clamp: 3; /* Limit to 3 lines */
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .custom-list-price {
+        font-size: 24px;
+        font-weight: 700;
+        color: #ff3366; /* Red/Pinkish Price */
+    }
+
+    /* Action Button (Bottom Right) */
+    .custom-list-action-btn {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        background: #8b5cf6; /* Purple color like screenshot */
+        color: #fff;
+        width: 50px;
+        height: 50px;
+        line-height: 50px;
+        text-align: center;
+        border-radius: 50%;
+        font-size: 18px;
+        transition: 0.3s;
+        box-shadow: 0 5px 15px rgba(139, 92, 246, 0.4);
+    }
+
+    .custom-list-action-btn:hover {
+        background: #7c3aed;
+        color: #fff;
+        transform: scale(1.1);
+    }
+
+    /* Tag Styling */
+    .list-tag {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #fff;
+        z-index: 1;
+    }
+    .list-tag.new { background: #00d25b; }
+    .list-tag.hot { background: #ffaa17; }
+    .list-tag.discount { background: #ff3366; }
+    .list-tag.oos { background: #666; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .custom-list-card { flex-direction: column; align-items: flex-start; }
+        .custom-list-img-box { flex: 0 0 100%; max-width: 100%; width: 100%; margin-bottom: 20px; }
+        .custom-list-content { padding-left: 0; width: 100%; }
+        .custom-list-action-btn { position: relative; float: right; margin-top: 10px; }
+    }
     </style>
 </head>
 
@@ -283,222 +290,443 @@ $prod_res = mysqli_query($conn, $prod_sql);
 
     <?php include "partials/header.php"?>
 
-    <div class="breadcrumb-area">
-        <div class="container">
-            <div class="row">
-                <div class="col-12">
-                    <div class="breadcrumb-wrap text-center">
-                        <h1 class="breadcrumb-title position-relative"><?php echo $page_title; ?></h1>
-                    </div>
+
+    <main class="main">
+
+        <!-- breadcrumb -->
+        <div class="site-breadcrumb">
+            <div class="site-breadcrumb-bg" style="background: url(assets/img/breadcrumb/01.jpg)"></div>
+            <div class="container">
+                <div class="site-breadcrumb-wrap">
+                    <h4 class="breadcrumb-title">Shop</h4>
+                    <ul class="breadcrumb-menu">
+                        <li><a href="index.php"><i class="far fa-home"></i> Home</a></li>
+                        <li class="active">Shop</li>
+                    </ul>
                 </div>
             </div>
         </div>
-    </div>
+        <!-- breadcrumb end -->
 
-    <div class="product-area section-padding">
-        <div class="container">
-            
-            <div class="row mt-5">
-                <div class="col-12">
-                    <form method="GET" action="shop.php" class="filter-box">
-                        <div class="row align-items-end">
-                            <?php if(!empty($cat_id)): ?>
-                                <input type="hidden" name="category" value="<?php echo $cat_id; ?>">
-                            <?php endif; ?>
 
-                            <div class="col-md-4 col-sm-12 mb-3 mb-md-0">
-                                <label><i class="fa fa-search"></i> Search Product</label>
-                                <input type="text" name="search" class="form-control" placeholder="Type Name..." value="<?php echo htmlspecialchars($search); ?>">
-                            </div>
-                            <div class="col-md-3 col-sm-6 mb-3 mb-md-0">
-                                <label>Min Price</label>
-                                <input type="number" name="min_price" class="form-control" placeholder="0" value="<?php echo $min_price; ?>">
-                            </div>
-                            <div class="col-md-3 col-sm-6 mb-3 mb-md-0">
-                                <label>Max Price</label>
-                                <input type="number" name="max_price" class="form-control" placeholder="Max" value="<?php echo $max_price; ?>">
-                            </div>
-                            <div class="col-md-2 col-sm-12">
-                                <button type="submit" class="btn flosun-button secondary-btn rounded-0 w-100" style="height: 45px; line-height: 45px; padding: 0;">Filter</button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <div class="row">
-                <?php
-                if (mysqli_num_rows($prod_res) > 0) {
-                    while ($row = mysqli_fetch_assoc($prod_res)) {
-                    $img_src = "uploads/" . $row['image'];
-                    $phone = "923350391951"; /// whatsapp number teacher ka 
-                    $p_name = urlencode($row['name']);
-                    $price = $row['price'];
-                    $wa_link = "https://wa.me/$phone?text=Salam! I want to order *$p_name* - Price: $price";
-                    $cat_name = isset($row['cat_name']) ? $row['cat_name'] : 'Product';
-                ?>
-
-                <div class="col-lg-3 col-md-4 col-sm-6">
-                    <div class="flip-card" 
-                         onclick="openProductModal(this)"
-                         data-name="<?php echo htmlspecialchars($row['name']); ?>"
-                         data-price="<?php echo number_format($row['price']); ?>"
-                         data-cat="<?php echo htmlspecialchars($cat_name); ?>"
-                         data-desc="<?php echo htmlspecialchars($row['details']); ?>"
-                         data-img="<?php echo file_exists($img_src) ? $img_src : 'assets/images/product/1.jpg'; ?>"
-                         data-walink="<?php echo $wa_link; ?>"
-                         style="cursor: pointer;">
-
-                        <div class="flip-card-inner">
-
-                            <div class="flip-card-front">
-                                <?php if(file_exists($img_src)): ?>
-                                    <img src="<?php echo $img_src; ?>" alt="<?php echo $row['name']; ?>">
-                                <?php else: ?>
-                                    <img src="assets/images/product/1.jpg" alt="Dummy">
-                                <?php endif; ?>
-                            </div>
-                                
-                            <div class="flip-card-back">
-                                <span class="flip-category"><?php echo $cat_name; ?></span>
-                                <h3 class="flip-title"><?php echo $row['name']; ?></h3>
-                                
-                                <p class="flip-details">
-                                    <?php echo (strlen($row['details']) > 80) ? substr($row['details'], 0, 80) . '...' : $row['details']; ?>
-                                    <br><span style="color:#E91E63; font-size:12px; font-weight:bold;">(Click for more)</span>
-                                </p>
-                                
-                                <span class="flip-price">PKR <?php echo number_format($row['price']); ?></span>
-                                
-                                <a href="<?php echo $wa_link; ?>" target="_blank" class="btn-flip-order" onclick="event.stopPropagation();">
-                                    <i class="fa fa-whatsapp"></i> Order Now
-                                </a>
-                            </div>
-                                
-                        </div>
-                    </div>
-                </div>
-                                
-                <?php 
-                }
-                } else {
-                    // --- LOGIC FIX: Check karo ke filter laga hai ya category khali hai ---
+        <!-- shop-area -->
+        <div class="shop-area py-90">
+            <div class="container">
+                <div class="row">
                     
-                    if ($is_filtered) {
-                        // CASE 1: Filter laga hua hai, par kuch nahi mila (Reset dikhao)
-                        $reset_link = "shop.php";
-                        if(!empty($cat_id)){ $reset_link .= "?category=" . $cat_id; }
+                    <div class="col-lg-3">
+                        <div class="shop-sidebar">
+                            
+                            <div class="shop-widget">
+                                <div class="shop-search-form">
+                                    <h4 class="shop-widget-title">Search</h4>
+                                    <form onsubmit="event.preventDefault(); applyFilters();">
+                                        <div class="form-group">
+                                            <input type="text" id="searchInput" class="form-control" placeholder="Search..." value="<?php echo isset($_GET['search']) ? htmlspecialchars($_GET['search']) : ''; ?>">
+                                            <button type="submit"><i class="far fa-search"></i></button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
 
-                        echo "<div class='col-12 text-center' style='padding: 100px 0;'>
-                                <i class='fa fa-search' style='font-size: 50px; color: #ccc; margin-bottom: 20px;'></i>
-                                <h3>No Products Found!</h3>
-                                <p>Try changing your filters or search keywords.</p>
-                                <a href='$reset_link' class='btn flosun-button secondary-btn rounded-0'>Reset Filters</a>
-                              </div>";
-                    } else {
-                        // CASE 2: Category hi khali hai (Browse Other Categories dikhao)
-                        echo "<div class='col-12 text-center' style='padding: 100px 0;'>
-                                <i class='fa fa-box-open' style='font-size: 50px; color: #ccc; margin-bottom: 20px;'></i>
-                                <h3>No Products Yet!</h3>
-                                <p>We haven't added any products in this category yet. Stay tuned!</p>
-                                <a href='index.php' class='btn flosun-button secondary-btn rounded-0'>Browse Other Categories</a>
-                              </div>";
-                    }
-                }
-                ?>
-            </div>
+                            <div class="shop-widget">
+                                <h4 class="shop-widget-title">Category</h4>
+                                <ul class="shop-category-list scroll-active">
+                                    <li><a href="shop.php" class="<?php echo !isset($_GET['category']) ? 'active-cat' : ''; ?>">All Categories</a></li>
+                                    <?php
+                                    $cat_sql = "SELECT c.id, c.cat_name, COUNT(p.id) as count FROM categories c LEFT JOIN products p ON c.id = p.category_id GROUP BY c.id";
+                                    $cat_res = mysqli_query($conn, $cat_sql);
+                                    while($cat = mysqli_fetch_assoc($cat_res)){
+                                        $isActive = (isset($_GET['category']) && $_GET['category'] == $cat['id']) ? 'style="color:var(--theme-color); font-weight:bold;"' : '';
+                                        echo "<li><a href='javascript:void(0);' onclick='setCategory(".$cat['id'].")' $isActive>".$cat['cat_name']."<span>(".$cat['count'].")</span></a></li>";
+                                    }
+                                    ?>
+                                </ul>
+                            </div>
 
-            <?php if ($total_pages > 1): ?>
-            <div class="row mb-5">
-                <div class="col-12">
-                    <div class="pagination-area">
-                        <?php
-                        $url_params = "";
-                        if(!empty($cat_id)) $url_params .= "&category=$cat_id";
-                        if(!empty($search)) $url_params .= "&search=$search";
-                        if(!empty($min_price)) $url_params .= "&min_price=$min_price";
-                        if(!empty($max_price)) $url_params .= "&max_price=$max_price";
+                            <div class="shop-widget">
+                                <h4 class="shop-widget-title">Price Range</h4>
+                                <div class="price-range-box">
+                                    <div class="price-range-input">
+                                        <input type="text" id="price-amount" readonly>
+                                    </div>
+                                    <div class="price-range"></div>
+                                    <input type="hidden" id="min_price_val" value="<?php echo $min_price; ?>">
+                                    <input type="hidden" id="max_price_val" value="<?php echo $max_price; ?>">
+                                </div>
+                            </div>
 
-                        if ($page > 1) echo '<a href="?page='.($page-1).$url_params.'" class="page-link-custom">&laquo; Prev</a>';
-                        for ($i = 1; $i <= $total_pages; $i++) {
-                            $active = ($page == $i) ? 'active' : '';
-                            echo '<a href="?page='.$i.$url_params.'" class="page-link-custom '.$active.'">'.$i.'</a>';
-                        }
-                        if ($page < $total_pages) echo '<a href="?page='.($page+1).$url_params.'" class="page-link-custom">Next &raquo;</a>';
-                        ?>
+                            <div class="shop-widget">
+                                <h4 class="shop-widget-title">Tags</h4>
+                                <ul class="shop-checkbox-list scroll-active">
+                                    <?php
+                                    $tag_sql = "SELECT DISTINCT product_tag FROM products WHERE product_tag != ''";
+                                    $tag_res = mysqli_query($conn, $tag_sql);
+                                    $t_count = 0;
+                                    while($t_row = mysqli_fetch_assoc($tag_res)){
+                                        $t_count++;
+                                        $tagName = $t_row['product_tag'];
+                                        $checked = in_array($tagName, $selected_tags) ? 'checked' : '';
+                                        echo "<li>
+                                                <div class='form-check'>
+                                                    <input class='form-check-input filter-tag' type='checkbox' value='$tagName' id='tag$t_count' $checked onchange='applyFilters()'>
+                                                    <label class='form-check-label' for='tag$t_count'>$tagName</label>
+                                                </div>
+                                              </li>";
+                                    }
+                                    ?>
+                                </ul>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div class="col-lg-9">
+                        <div class="col-md-12">
+                            <div class="shop-sort">
+                                <div class="shop-sort-box">
+                                    <div class="shop-sorty-label">Sort By:</div>
+                                    <select class="select" id="sortSelect" onchange="applyFilters()">
+                                        <option value="1" <?php echo ($sort_option=='1')?'selected':''; ?>>Default Sorting</option>
+                                        <option value="5" <?php echo ($sort_option=='5')?'selected':''; ?>>Latest Items</option>
+                                        <option value="2" <?php echo ($sort_option=='2')?'selected':''; ?>>Best Seller</option>
+                                        <option value="3" <?php echo ($sort_option=='3')?'selected':''; ?>>Price - Low To High</option>
+                                        <option value="4" <?php echo ($sort_option=='4')?'selected':''; ?>>Price - High To Low</option>
+                                    </select>
+                                    <div class="shop-sort-show">Showing <?php echo "$start-$end of $total_rows"; ?> Results</div>
+                                </div>
+                                <div class="shop-sort-gl">
+                                    <a href="javascript:void(0);" onclick="setView('grid')" class="shop-sort-grid <?php echo $view_mode=='grid'?'active':''; ?>"><i class="far fa-grid-round-2"></i></a>
+                                    <a href="javascript:void(0);" onclick="setView('list')" class="shop-sort-list <?php echo $view_mode=='list'?'active':''; ?>"><i class="far fa-list-ul"></i></a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="shop-item-wrap">
+                            <div class="row g-4">
+                                <?php
+                                $final_sql = "SELECT products.*, categories.cat_name 
+                                              FROM products 
+                                              LEFT JOIN categories ON products.category_id = categories.id 
+                                              $whereSQL $orderBy LIMIT $limit OFFSET $offset";
+
+                                $final_res = mysqli_query($conn, $final_sql);
+
+                                if(mysqli_num_rows($final_res) > 0){
+                                    while($row = mysqli_fetch_assoc($final_res)){
+
+                                        // --- Variables ---
+                                        $p_name = htmlspecialchars($row['name']);
+                                        $price = number_format($row['price']);
+                                        $img_src = "uploads/" . $row['image'];
+                                        $db_tag = isset($row['product_tag']) ? $row['product_tag'] : 'New';
+                                        $cat_name = isset($row['cat_name']) ? $row['cat_name'] : 'Item';
+
+                                        // Badge Logic
+                                        $badge = 'new';
+                                        $t_low = strtolower($db_tag);
+                                        if($t_low == 'hot') $badge = 'hot';
+                                        elseif($t_low == 'sale') $badge = 'discount';
+                                        elseif($t_low == 'out of stock') $badge = 'oos';
+
+                                        // WhatsApp Link
+                                        $wa_msg = urlencode("Salam! I want to order: $p_name - Price: $price");
+                                        $wa_link = "https://wa.me/923350391951?text=$wa_msg";
+
+                                        // --- CONDITION: GRID VIEW VS LIST VIEW ---
+                                        if ($view_mode == 'grid') {
+                                            // === OLD GRID DESIGN ===
+                                            ?>
+                                            <div class="col-md-6 col-lg-3">
+                                                <div class="product-item">
+                                                    <div class="product-img">
+                                                        <span class="type <?php echo $badge; ?>"><?php echo $db_tag; ?></span>
+                                                        <a href="#"><img src="<?php echo file_exists($img_src)?$img_src:'assets/img/product/01.png'; ?>" alt="" style="height:250px; object-fit:cover;"></a>
+                                                        <div class="product-action-wrap">
+                                                            <div class="product-action">
+                                                                <a href="javascript:void(0);" onclick='openQuickView(<?php echo json_encode($row); ?>, "<?php echo $cat_name; ?>")' data-bs-toggle="modal" data-bs-target="#quickview" data-tooltip="tooltip" title="Quick View"><i class="far fa-eye"></i></a>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="product-content">
+                                                        <div class="product-info">
+                                                            <h3 class="product-title"><a href="#"><?php echo $p_name; ?></a></h3>
+                                                            <div class="product-price"><span>PKR <?php echo $price; ?></span></div>
+                                                        </div>
+                                                        <a href="<?php echo $wa_link; ?>" target="_blank" class="product-cart-btn"><i class="fab fa-whatsapp"></i></a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <?php
+                                        } else {
+                                            // === NEW LIST VIEW DESIGN (SCREENSHOT MATCH) ===
+                                            ?>
+                                            <div class="col-lg-12">
+                                                <div class="custom-list-card">
+
+                                                    <div class="custom-list-img-box">
+                                                        <span class="list-tag <?php echo $badge; ?>"><?php echo $db_tag; ?></span>
+                                                        <img src="<?php echo file_exists($img_src)?$img_src:'assets/img/product/01.png'; ?>" alt="<?php echo $p_name; ?>">
+
+                                                        <a href="javascript:void(0);" 
+                                                           class="hover-eye-btn"
+                                                           onclick='openQuickView(<?php echo json_encode($row); ?>, "<?php echo $cat_name; ?>")' 
+                                                           data-bs-toggle="modal" data-bs-target="#quickview">
+                                                            <i class="far fa-eye"></i>
+                                                        </a>
+                                                    </div>
+
+                                                    <div class="custom-list-content">
+                                                        <a href="#" class="custom-list-title"><?php echo $p_name; ?></a>
+
+                                                        <p class="custom-list-desc">
+                                                            <?php echo !empty($row['details']) ? substr($row['details'], 0, 200).'...' : 'No description available for this premium product.'; ?>
+                                                        </p>
+
+                                                        <div class="d-flex justify-content-between align-items-end mt-4">
+                                                            <div class="custom-list-price">PKR <?php echo $price; ?></div>
+
+                                                            <a href="<?php echo $wa_link; ?>" target="_blank" class="custom-list-action-btn">
+                                                                <i class="fab fa-whatsapp"></i>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+
+                                                </div>
+                                            </div>
+                                            <?php
+                                        }
+                                    }
+                                } else {
+                                    echo "<div class='col-12 text-center py-5'><h3>No Products Found!</h3><a href='shop.php' class='theme-btn'>Clear Filters</a></div>";
+                                }
+                                ?>
+                            </div>
+                        </div>
+
+                        <?php if($total_pages > 1): ?>
+                        <div class="pagination-area mt-50">
+                            <div aria-label="Page navigation example">
+                                <ul class="pagination">
+                                                
+                                    <?php if($page > 1): ?>
+                                    <li class="page-item">
+                                        <a class="page-link" href="javascript:void(0);" onclick="setPage(<?php echo $page - 1; ?>)" aria-label="Previous">
+                                            <span aria-hidden="true"><i class="far fa-arrow-left"></i></span>
+                                        </a>
+                                    </li>
+                                    <?php endif; ?>
+                                    
+                                    <?php
+                                    // Start aur End calculate karo (Current se 1 peeche, Current, Current se 1 aage)
+                                    $start_loop = max(1, $page - 1);
+                                    $end_loop = min($total_pages, $page + 1);
+                                    
+                                    // Loop sirf inhi numbers par chalega
+                                    for($i = $start_loop; $i <= $end_loop; $i++): 
+                                    ?>
+                                        <li class="page-item <?php echo ($page == $i) ? 'active' : ''; ?>">
+                                            <a class="page-link" href="javascript:void(0);" onclick="setPage(<?php echo $i; ?>)"><?php echo $i; ?></a>
+                                        </li>
+                                    <?php endfor; ?>
+                                    
+                                    <?php if($page < $total_pages): ?>
+                                    <li class="page-item">
+                                        <a class="page-link" href="javascript:void(0);" onclick="setPage(<?php echo $page + 1; ?>)" aria-label="Next">
+                                            <span aria-hidden="true"><i class="far fa-arrow-right"></i></span>
+                                        </a>
+                                    </li>
+                                    <?php endif; ?>
+                                    
+                                </ul>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
                     </div>
                 </div>
             </div>
-            <?php endif; ?>
         </div>
-    </div>
+        <!-- shop-area end -->
 
-    <div id="productModal" class="product-modal-overlay">
-        <div class="product-modal-box">
-            <span class="pm-close" onclick="closeProductModal()">&times;</span>
-                
-            <div class="pm-img-col">
-                <img id="modalImg" src="" alt="Product">
-            </div>
-                
-            <div class="pm-info-col">
-                <span id="modalCat" class="pm-cat">Category</span>
-                <h2 id="modalTitle" class="pm-title">Product Name</h2>
-                <div id="modalPrice" class="pm-price">PKR 0</div>
-                
-                <div class="pm-desc-box custom-scroll" id="modalDesc">
-                    Product description goes here...
+    </main>
+
+
+    <?php include "partials/footer.php"?>
+
+
+    <!-- scroll-top -->
+    <a href="#" id="scroll-top"><i class="far fa-arrow-up-from-arc"></i></a>
+    <!-- scroll-top end -->
+
+
+    <!-- modal quick shop-->
+    <div class="modal quickview fade" id="quickview" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="quickview" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="far fa-xmark"></i>
+                </button>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-lg-6 col-md-12 col-sm-12 col-xs-12">
+                            <img id="qv_image" src="" alt="Product Image" style="width: 100%; height: 450px; object-fit: cover; border-radius: 10px;">
+                        </div>
+                                    
+                        <div class="col-lg-6 col-md-12 col-sm-12 col-xs-12">
+                            <div class="quickview-content">
+                                    
+                                <h4 id="qv_title" class="quickview-title">Product Name</h4>
+                                    
+                                <div class="quickview-price">
+                                    <h5><span id="qv_price">PKR 0</span></h5>
+                                </div>
+                                    
+                                <ul class="quickview-list">
+                                    <li>Category: <span id="qv_category" style="font-weight:600; color:#333;">-</span></li>
+                                    <li>Tag: <span id="qv_tag" class="badge" style="background-color:var(--theme-color); color:white; padding:5px 10px; border-radius:5px;">-</span></li>
+                                </ul>
+                                    
+                                <div class="quickview-cart" style="margin-bottom: 20px;">
+                                    <a id="qv_wa_link" href="#" target="_blank" class="theme-btn" style="width: 100%; text-align: center;">
+                                        <i class="fab fa-whatsapp"></i> Order on WhatsApp
+                                    </a>
+                                </div>
+
+                                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px;">
+                                    <h6 style="font-size: 14px; font-weight: 700; margin-bottom: 8px; color: #333;">Description:</h6>
+                                    <div id="qv_details" class="custom-scroll" 
+                                         style="max-height: 100px; overflow-y: auto; font-size: 14px; line-height: 1.6; color: #666; padding-right: 5px;">
+                                        </div>
+                                </div>
+                                    
+                                <div class="quickview-social" style="border-top: 1px solid #eee; padding-top: 15px;">
+                                    <span>Share:</span>
+                                    <a href="#"><i class="fab fa-facebook-f"></i></a>
+                                    <a href="#"><i class="fab fa-instagram"></i></a>
+                                    <a href="#"><i class="fab fa-twitter"></i></a>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                
-                <a id="modalWaBtn" href="#" target="_blank" class="btn flosun-button secondary-btn rounded-0" style="background: #25D366; border: none; text-align:center;">
-                    <i class="fa fa-whatsapp"></i> Order on WhatsApp
-                </a>
             </div>
         </div>
     </div>
+    <!-- modal quick shop end -->
 
-    <script>
-        // Open Modal Function
-        function openProductModal(element) {
-            // Data attributes se value uthao (jo hum Step 3 me set karenge)
-            var name = element.getAttribute('data-name');
-            var price = element.getAttribute('data-price');
-            var cat = element.getAttribute('data-cat');
-            var desc = element.getAttribute('data-desc');
-            var img = element.getAttribute('data-img');
-            var link = element.getAttribute('data-walink');
 
-            // Modal ke elements me value daalo
-            document.getElementById('modalTitle').innerText = name;
-            document.getElementById('modalPrice').innerText = "PKR " + price;
-            document.getElementById('modalCat').innerText = cat;
-            document.getElementById('modalDesc').innerText = desc; // HTML tags hatane ke liye innerText use kiya
-            document.getElementById('modalImg').src = img;
-            document.getElementById('modalWaBtn').href = link;
+    <!-- js -->
+    <script data-cfasync="false" src="../cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="assets/js/jquery-3.7.1.min.js"></script>
+    <script src="assets/js/modernizr.min.js"></script>
+    <script src="assets/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/imagesloaded.pkgd.min.js"></script>
+    <script src="assets/js/jquery.magnific-popup.min.js"></script>
+    <script src="assets/js/isotope.pkgd.min.js"></script>
+    <script src="assets/js/jquery.appear.min.js"></script>
+    <script src="assets/js/jquery.easing.min.js"></script>
+    <script src="assets/js/owl.carousel.min.js"></script>
+    <script src="assets/js/counter-up.js"></script>
+    <script src="assets/js/jquery-ui.min.js"></script>
+    <script src="assets/js/jquery.nice-select.min.js"></script>
+    <script src="assets/js/countdown.min.js"></script>
+    <script src="assets/js/wow.min.js"></script>
+    <script src="assets/js/main.js"></script>
 
-            // Modal dikhao
-            document.getElementById('productModal').style.display = "flex";
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"1190e059c5bc497bafd35e121aae37b1","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script>
+        $(document).ready(function() {
+            // Price Slider Init
+            var minP = parseInt($("#min_price_val").val());
+            var maxP = parseInt($("#max_price_val").val());
+            
+            $(".price-range").slider({
+                range: true, min: 0, max: 20000, values: [minP, maxP],
+                slide: function(event, ui) { $("#price-amount").val("PKR " + ui.values[0] + " - PKR " + ui.values[1]); },
+                stop: function(event, ui) { applyFilters(); }
+            });
+            $("#price-amount").val("PKR " + minP + " - PKR " + maxP);
+        });
+
+        // Master Filter Function
+        function applyFilters() {
+            var url = new URL(window.location.href);
+            var params = new URLSearchParams(url.search);
+
+            // 1. Search
+            var search = $("#searchInput").val();
+            if(search) params.set('search', search); else params.delete('search');
+
+            // 2. Sort
+            var sort = $("#sortSelect").val();
+            params.set('sort', sort);
+
+            // 3. Price
+            var min = $(".price-range").slider("values", 0);
+            var max = $(".price-range").slider("values", 1);
+            params.set('min_price', min);
+            params.set('max_price', max);
+
+            // 4. Tags
+            params.delete('tags[]'); // Clear old tags
+            $('.filter-tag:checked').each(function() {
+                params.append('tags[]', $(this).val());
+            });
+
+            // Page reset to 1 on filter change
+            params.set('page', 1);
+
+            window.location.href = "shop.php?" + params.toString();
         }
 
-        // Close Modal Function
-        function closeProductModal() {
-            document.getElementById('productModal').style.display = "none";
+        // Helpers for Links
+        function setCategory(id) {
+            var url = new URL(window.location.href);
+            url.searchParams.set('category', id);
+            url.searchParams.set('page', 1); // Reset page
+            window.location.href = url.toString();
         }
 
-        // Window click se close karna
-        window.onclick = function(event) {
-            var modal = document.getElementById('productModal');
-            if (event.target == modal) {
-                modal.style.display = "none";
-            }
+        function setPage(p) {
+            var url = new URL(window.location.href);
+            url.searchParams.set('page', p);
+            window.location.href = url.toString();
+        }
+
+        function setView(v) {
+            var url = new URL(window.location.href);
+            url.searchParams.set('view', v);
+            url.searchParams.set('page', 1); // View change karte waqt page 1 par le jao
+            window.location.href = url.toString();
+        }
+        // --- Quick View Modal Function ---
+        function openQuickView(product, categoryName) {
+            // 1. Basic Data
+            document.getElementById('qv_title').innerText = product.name;
+            document.getElementById('qv_price').innerText = "PKR " + new Intl.NumberFormat().format(product.price);
+            document.getElementById('qv_category').innerText = categoryName;
+                                    
+            // 2. Dynamic Tag
+            var tagText = product.product_tag ? product.product_tag : 'New';
+            document.getElementById('qv_tag').innerText = tagText;
+                                    
+            // 3. Description
+            var desc = product.details ? product.details : "No description available.";
+            document.getElementById('qv_details').innerHTML = desc;
+                                    
+            // 4. Image Path
+            var imgPath = "uploads/" + product.image;
+            document.getElementById('qv_image').src = imgPath;
+                                    
+            // 5. WhatsApp Link
+            var phone = "923350391951"; // Apna number check karlena
+            var msg = encodeURIComponent("Salam! I want to order from Shop: " + product.name + " - Price: " + product.price);
+            document.getElementById('qv_wa_link').href = "https://wa.me/" + phone + "?text=" + msg;
         }
     </script>
-
-    <?php include 'partials/footer.php'; ?>
-
-
-    <script src="assets/js/vendor/jquery-3.6.0.min.js"></script>
-    <script src="assets/js/vendor/bootstrap.bundle.min.js"></script>
-    <script src="assets/js/main.js"></script>
 </body>
+
+
+<!-- Mirrored from live.themewild.com/gifoy/shop-grid.html by HTTrack Website Copier/3.x [XR&CO'2014], Tue, 10 Feb 2026 16:13:16 GMT -->
 </html>
