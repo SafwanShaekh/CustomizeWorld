@@ -176,20 +176,25 @@ if (isset($_GET['delete_id']) && isset($_GET['type'])) {
                     </thead>
                     <tbody>
                         <?php
-                        // Count Total
+                        // Count Total Products
                         $total_p_res = mysqli_query($conn, "SELECT COUNT(*) FROM products");
                         $total_p_rows = mysqli_fetch_array($total_p_res)[0];
                         $total_p_pages = ceil($total_p_rows / $limit);
-
+                    
                         $sql = "SELECT products.*, categories.cat_name FROM products 
                                 LEFT JOIN categories ON products.category_id = categories.id 
                                 ORDER BY products.id DESC LIMIT $limit OFFSET $prod_offset";
                         $res = mysqli_query($conn, $sql);
-
+                    
                         if (mysqli_num_rows($res) > 0) {
                             while($row = mysqli_fetch_assoc($res)){
                                 $img_path = "../uploads/".$row['image'];
                                 $current_tag = isset($row['product_tag']) ? $row['product_tag'] : 'New';
+                                
+                                // --- FIX: Secure JSON Data ---
+                                // Data ko safe string mein convert kar rahe hain taake JS error na aye
+                                $row_data = htmlspecialchars(json_encode($row), ENT_QUOTES, 'UTF-8');
+                    
                                 echo "<tr>
                                         <td><img src='$img_path' width='40' height='40' style='border-radius:4px; object-fit:cover; border:1px solid #eee;'></td>
                                         <td><strong>".htmlspecialchars($row['name'])."</strong></td>
@@ -206,7 +211,8 @@ if (isset($_GET['delete_id']) && isset($_GET['type'])) {
                                             ".(!in_array($current_tag, ['New','Hot','Sale','Out of Stock']) ? "<br><small style='color:#007bff; font-weight:bold;'>$current_tag</small>" : "")."
                                         </td>
                                         <td>
-                                            <button class='action-btn edit-btn' onclick='openProdModal(".json_encode($row).")'><i class='fas fa-edit'></i></button>
+                                            <button class='action-btn edit-btn' onclick='openProdModal($row_data)'><i class='fas fa-edit'></i></button>
+                                            
                                             <a href='manage_content.php?delete_id=".$row['id']."&type=product&page=$prod_page' class='action-btn del-btn' onclick='return confirm(\"Delete?\")'><i class='fas fa-trash'></i></a>
                                         </td>
                                       </tr>";

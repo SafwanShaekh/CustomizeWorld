@@ -412,46 +412,67 @@ $end = min($offset + $limit, $total_rows);
 
                                 $final_res = mysqli_query($conn, $final_sql);
 
+                                // Dynamic Column Class logic
+                                $col_class = ($view_mode == 'list') ? 'col-lg-12 col-md-12' : 'col-md-6 col-lg-3';
+
                                 if(mysqli_num_rows($final_res) > 0){
                                     while($row = mysqli_fetch_assoc($final_res)){
 
-                                        // --- Variables ---
-                                        $p_name = htmlspecialchars($row['name']);
-                                        $price = number_format($row['price']);
-                                        $img_src = "uploads/" . $row['image'];
-                                        $db_tag = isset($row['product_tag']) ? $row['product_tag'] : 'New';
-                                        $cat_name = isset($row['cat_name']) ? $row['cat_name'] : 'Item';
+                                        // --- 1. DATA PREPARATION ---
+                                        // Data ko plain variables mein rakho, JSON ki zaroorat nahi
+                                        $p_name = htmlspecialchars($row['name'], ENT_QUOTES, 'UTF-8');
+                                        $p_price = $row['price']; // Number hai, safe hai
+                                        $p_details = htmlspecialchars($row['details'], ENT_QUOTES, 'UTF-8');
+                                        $p_tag = isset($row['product_tag']) ? htmlspecialchars($row['product_tag']) : 'New';
+                                        $p_cat = isset($row['cat_name']) ? htmlspecialchars($row['cat_name']) : 'Item';
+
+                                        // Image Path Check
+                                        $db_img = "uploads/" . $row['image'];
+                                        $final_img = file_exists($db_img) ? $db_img : 'assets/img/product/01.png';
+
+                                        // WhatsApp Link
+                                        $phone = "923350391951";
+                                        $wa_msg = urlencode("Salam! I want to order: " . $row['name'] . " - Price: " . $row['price']);
+                                        $wa_link = "https://wa.me/$phone?text=$wa_msg";
 
                                         // Badge Logic
                                         $badge = 'new';
-                                        $t_low = strtolower($db_tag);
+                                        $t_low = strtolower($p_tag);
                                         if($t_low == 'hot') $badge = 'hot';
                                         elseif($t_low == 'sale') $badge = 'discount';
                                         elseif($t_low == 'out of stock') $badge = 'oos';
 
-                                        // WhatsApp Link
-                                        $wa_msg = urlencode("Salam! I want to order: $p_name - Price: $price");
-                                        $wa_link = "https://wa.me/923350391951?text=$wa_msg";
-
-                                        // --- CONDITION: GRID VIEW VS LIST VIEW ---
+                                        // --- VIEW RENDER ---
                                         if ($view_mode == 'grid') {
-                                            // === OLD GRID DESIGN ===
+                                            // === GRID DESIGN ===
                                             ?>
-                                            <div class="col-md-6 col-lg-3">
+                                            <div class="<?php echo $col_class; ?>">
                                                 <div class="product-item">
                                                     <div class="product-img">
-                                                        <span class="type <?php echo $badge; ?>"><?php echo $db_tag; ?></span>
-                                                        <a href="#"><img src="<?php echo file_exists($img_src)?$img_src:'assets/img/product/01.png'; ?>" alt="" style="height:250px; object-fit:cover;"></a>
+                                                        <span class="type <?php echo $badge; ?>"><?php echo $p_tag; ?></span>
+                                                        <a href="#"><img src="<?php echo $final_img; ?>" alt="" style="height:250px; object-fit:cover;"></a>
                                                         <div class="product-action-wrap">
                                                             <div class="product-action">
-                                                                <a href="javascript:void(0);" onclick='openQuickView(<?php echo json_encode($row); ?>, "<?php echo $cat_name; ?>")' data-bs-toggle="modal" data-bs-target="#quickview" data-tooltip="tooltip" title="Quick View"><i class="far fa-eye"></i></a>
+                                                                <a href="javascript:void(0);" 
+                                                                   class="qv-btn"
+                                                                   onclick="openQuickView(this)"
+                                                                   data-name="<?php echo $p_name; ?>"
+                                                                   data-price="<?php echo $p_price; ?>"
+                                                                   data-details="<?php echo $p_details; ?>"
+                                                                   data-image="<?php echo $final_img; ?>"
+                                                                   data-tag="<?php echo $p_tag; ?>"
+                                                                   data-category="<?php echo $p_cat; ?>"
+                                                                   data-bs-toggle="modal" data-bs-target="#quickview" 
+                                                                   data-tooltip="tooltip" title="Quick View">
+                                                                   <i class="far fa-eye"></i>
+                                                                </a>
                                                             </div>
                                                         </div>
                                                     </div>
                                                     <div class="product-content">
                                                         <div class="product-info">
                                                             <h3 class="product-title"><a href="#"><?php echo $p_name; ?></a></h3>
-                                                            <div class="product-price"><span>PKR <?php echo $price; ?></span></div>
+                                                            <div class="product-price"><span>PKR <?php echo number_format($p_price); ?></span></div>
                                                         </div>
                                                         <a href="<?php echo $wa_link; ?>" target="_blank" class="product-cart-btn"><i class="fab fa-whatsapp"></i></a>
                                                     </div>
@@ -459,18 +480,23 @@ $end = min($offset + $limit, $total_rows);
                                             </div>
                                             <?php
                                         } else {
-                                            // === NEW LIST VIEW DESIGN (SCREENSHOT MATCH) ===
+                                            // === LIST VIEW DESIGN ===
                                             ?>
                                             <div class="col-lg-12">
                                                 <div class="custom-list-card">
-
                                                     <div class="custom-list-img-box">
-                                                        <span class="list-tag <?php echo $badge; ?>"><?php echo $db_tag; ?></span>
-                                                        <img src="<?php echo file_exists($img_src)?$img_src:'assets/img/product/01.png'; ?>" alt="<?php echo $p_name; ?>">
+                                                        <span class="list-tag <?php echo $badge; ?>"><?php echo $p_tag; ?></span>
+                                                        <img src="<?php echo $final_img; ?>" alt="<?php echo $p_name; ?>">
 
                                                         <a href="javascript:void(0);" 
                                                            class="hover-eye-btn"
-                                                           onclick='openQuickView(<?php echo json_encode($row); ?>, "<?php echo $cat_name; ?>")' 
+                                                           onclick="openQuickView(this)"
+                                                           data-name="<?php echo $p_name; ?>"
+                                                           data-price="<?php echo $p_price; ?>"
+                                                           data-details="<?php echo $p_details; ?>"
+                                                           data-image="<?php echo $final_img; ?>"
+                                                           data-tag="<?php echo $p_tag; ?>"
+                                                           data-category="<?php echo $p_cat; ?>"
                                                            data-bs-toggle="modal" data-bs-target="#quickview">
                                                             <i class="far fa-eye"></i>
                                                         </a>
@@ -478,20 +504,19 @@ $end = min($offset + $limit, $total_rows);
 
                                                     <div class="custom-list-content">
                                                         <a href="#" class="custom-list-title"><?php echo $p_name; ?></a>
-
+                                                        <div class="product-rate" style="color: #ffaa17; font-size: 14px; margin-bottom: 15px;">
+                                                            <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="far fa-star"></i>
+                                                        </div>
                                                         <p class="custom-list-desc">
-                                                            <?php echo !empty($row['details']) ? substr($row['details'], 0, 200).'...' : 'No description available for this premium product.'; ?>
+                                                            <?php echo !empty($p_details) ? substr($p_details, 0, 200).'...' : 'No description available.'; ?>
                                                         </p>
-
                                                         <div class="d-flex justify-content-between align-items-end mt-4">
-                                                            <div class="custom-list-price">PKR <?php echo $price; ?></div>
-
+                                                            <div class="custom-list-price">PKR <?php echo number_format($p_price); ?></div>
                                                             <a href="<?php echo $wa_link; ?>" target="_blank" class="custom-list-action-btn">
                                                                 <i class="fab fa-whatsapp"></i>
                                                             </a>
                                                         </div>
                                                     </div>
-
                                                 </div>
                                             </div>
                                             <?php
@@ -596,15 +621,14 @@ $end = min($offset + $limit, $total_rows);
                                 <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px;">
                                     <h6 style="font-size: 14px; font-weight: 700; margin-bottom: 8px; color: #333;">Description:</h6>
                                     <div id="qv_details" class="custom-scroll" 
-                                         style="max-height: 100px; overflow-y: auto; font-size: 14px; line-height: 1.6; color: #666; padding-right: 5px;">
-                                        </div>
+                                     style="white-space: pre-line; max-height: 100px; overflow-y: auto; font-size: 14px; line-height: 1.6; color: #666; padding-right: 5px;">
+                                    </div>
                                 </div>
                                     
                                 <div class="quickview-social" style="border-top: 1px solid #eee; padding-top: 15px;">
                                     <span>Share:</span>
-                                    <a href="#"><i class="fab fa-facebook-f"></i></a>
-                                    <a href="#"><i class="fab fa-instagram"></i></a>
-                                    <a href="#"><i class="fab fa-twitter"></i></a>
+                                    <a href="https://www.facebook.com/share/1BfUiUneiH/?mibextid=wwXIfr"><i class="fab fa-facebook-f"></i></a>
+                                    <a href="https://www.instagram.com/customizeworld8"><i class="fab fa-instagram"></i></a>
                                 </div>
 
                             </div>
@@ -695,33 +719,35 @@ $end = min($offset + $limit, $total_rows);
         }
 
         function setView(v) {
-            var url = new URL(window.location.href);
-            url.searchParams.set('view', v);
-            url.searchParams.set('page', 1); // View change karte waqt page 1 par le jao
-            window.location.href = url.toString();
-        }
-        // --- Quick View Modal Function ---
-        function openQuickView(product, categoryName) {
-            // 1. Basic Data
-            document.getElementById('qv_title').innerText = product.name;
-            document.getElementById('qv_price').innerText = "PKR " + new Intl.NumberFormat().format(product.price);
-            document.getElementById('qv_category').innerText = categoryName;
-                                    
-            // 2. Dynamic Tag
-            var tagText = product.product_tag ? product.product_tag : 'New';
-            document.getElementById('qv_tag').innerText = tagText;
-                                    
-            // 3. Description
-            var desc = product.details ? product.details : "No description available.";
+                var url = new URL(window.location.href);
+                url.searchParams.set('view', v);
+                url.searchParams.set('page', 1); // View change karte waqt page 1 par le jao
+                window.location.href = url.toString();
+            }
+            // --- Quick View Modal Function ---
+            function openQuickView(element) {
+            // 1. Data Attributes se values uthao (Safe Method)
+            var name = element.getAttribute('data-name');
+            var price = element.getAttribute('data-price');
+            var details = element.getAttribute('data-details');
+            var image = element.getAttribute('data-image');
+            var tag = element.getAttribute('data-tag');
+            var category = element.getAttribute('data-category');
+
+            // 2. Data ko Modal mein bharna
+            document.getElementById('qv_title').innerText = name;
+            document.getElementById('qv_price').innerText = "PKR " + new Intl.NumberFormat().format(price);
+            document.getElementById('qv_category').innerText = category;
+            document.getElementById('qv_tag').innerText = tag;
+                                        
+            var desc = details ? details : "No description available.";
             document.getElementById('qv_details').innerHTML = desc;
-                                    
-            // 4. Image Path
-            var imgPath = "uploads/" + product.image;
-            document.getElementById('qv_image').src = imgPath;
-                                    
-            // 5. WhatsApp Link
-            var phone = "923350391951"; // Apna number check karlena
-            var msg = encodeURIComponent("Salam! I want to order from Shop: " + product.name + " - Price: " + product.price);
+
+            document.getElementById('qv_image').src = image;
+
+            // 3. WhatsApp Link Update
+            var phone = "923350391951"; 
+            var msg = encodeURIComponent("Salam! I want to order: " + name + " - Price: " + price);
             document.getElementById('qv_wa_link').href = "https://wa.me/" + phone + "?text=" + msg;
         }
     </script>

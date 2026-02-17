@@ -307,7 +307,7 @@
         <!-- feature area end -->
 
 
-        <!-- product-area -->
+        <!-- product-area dynamic -->
         <div class="product-area pb-100">
             <div class="container">
                 <div class="row g-4 align-items-center">
@@ -328,7 +328,6 @@
                     <div class="col-lg-8">
                         <div class="product-wrap wow fadeInUp" data-wow-delay=".25s">
                             <div class="product-slider2 owl-carousel owl-theme">
-
                                 <?php
                                 // JOIN QUERY: Products + Category Name
                                 $sql = "SELECT products.*, categories.cat_name 
@@ -340,57 +339,73 @@
 
                                 if (mysqli_num_rows($res) > 0) {
                                     while ($row = mysqli_fetch_assoc($res)) {
-                                        // Variables
-                                        $p_name = $row['name'];
+
+                                        // --- 1. DATA PREPARATION (Safe Variables) ---
+                                        $p_name = htmlspecialchars($row['name'], ENT_QUOTES, 'UTF-8');
                                         $price = $row['price'];
-                                        $img_src = "uploads/" . $row['image'];
+                                        $p_details = htmlspecialchars($row['details'], ENT_QUOTES, 'UTF-8');
+
+                                        // Tag & Category
                                         $db_tag = isset($row['product_tag']) ? $row['product_tag'] : 'New';
-                                        $cat_name = isset($row['cat_name']) ? $row['cat_name'] : 'General'; // Category Name
+                                        $p_tag = htmlspecialchars($db_tag, ENT_QUOTES, 'UTF-8');
+
+                                        $cat_name = isset($row['cat_name']) ? $row['cat_name'] : 'General';
+                                        $p_cat = htmlspecialchars($cat_name, ENT_QUOTES, 'UTF-8');
+
+                                        // Image Logic
+                                        $db_img = "uploads/" . $row['image'];
+                                        $final_img = file_exists($db_img) ? $db_img : 'assets/img/product/01.png';
 
                                         // Badge Logic
                                         $badge_class = 'new';
-                                        if (strtolower($db_tag) == 'hot') { $badge_class = 'hot'; }
-                                        elseif (strtolower($db_tag) == 'sale') { $badge_class = 'discount'; }
-                                        elseif (strtolower($db_tag) == 'out of stock') { $badge_class = 'oos'; }
+                                        $t_low = strtolower($db_tag);
+                                        if ($t_low == 'hot') { $badge_class = 'hot'; }
+                                        elseif ($t_low == 'sale') { $badge_class = 'discount'; }
+                                        elseif ($t_low == 'out of stock') { $badge_class = 'oos'; }
 
                                         // WhatsApp Link
-                                        $phone = "92335 0391951";
+                                        $phone = "923350391951";
                                         $wa_msg = urlencode("Salam! I want to order: $p_name - Price: $price");
                                         $wa_link = "https://wa.me/$phone?text=$wa_msg";
                                 ?>
-                                <div class="product-item">
-                                    <div class="product-img">
-                                        <span class="type <?php echo $badge_class; ?>"><?php echo $db_tag; ?></span>
-                                        <a href="shop.php">
-                                            <?php if(file_exists($img_src)): ?>
-                                                <img src="<?php echo $img_src; ?>" alt="<?php echo $p_name; ?>" style="height: 280px; object-fit: cover;">
-                                            <?php else: ?>
-                                                <img src="assets/img/product/01.png" alt="Dummy" style="height: 280px; object-fit: cover;">
-                                            <?php endif; ?>
-                                        </a>
-                                        <div class="product-action-wrap">
-                                            <div class="product-action">
-                                                <a href="javascript:void(0);" 
-                                                   onclick='openQuickView(<?php echo json_encode($row); ?>, "<?php echo $cat_name; ?>")' 
-                                                   data-bs-toggle="modal" data-bs-target="#quickview" data-tooltip="tooltip" title="Quick View">
-                                                   <i class="far fa-eye"></i>
+                                        <div class="product-item">
+                                            <div class="product-img">
+                                                <span class="type <?php echo $badge_class; ?>"><?php echo $p_tag; ?></span>
+                                                <a href="shop.php">
+                                                    <img src="<?php echo $final_img; ?>" alt="<?php echo $p_name; ?>" style="height: 280px; object-fit: cover;">
+                                                </a>
+                                                <div class="product-action-wrap">
+                                                    <div class="product-action">
+                                                        <a href="javascript:void(0);" 
+                                                           onclick="openQuickView(this)"
+                                                           data-name="<?php echo $p_name; ?>"
+                                                           data-price="<?php echo $price; ?>"
+                                                           data-details="<?php echo $p_details; ?>"
+                                                           data-image="<?php echo $final_img; ?>"
+                                                           data-tag="<?php echo $p_tag; ?>"
+                                                           data-category="<?php echo $p_cat; ?>"
+                                                           data-bs-toggle="modal" data-bs-target="#quickview" 
+                                                           data-tooltip="tooltip" title="Quick View">
+                                                           <i class="far fa-eye"></i>
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="product-content">
+                                                <div class="product-info">
+                                                    <h3 class="product-title"><a href="shop.php"><?php echo $p_name; ?></a></h3>
+                                                    <div class="product-price"><span>PKR <?php echo number_format($price); ?></span></div>
+                                                </div>
+                                                <a href="<?php echo $wa_link; ?>" target="_blank" class="product-cart-btn" data-tooltip="tooltip" title="Order on WhatsApp">
+                                                    <i class="fab fa-whatsapp"></i>
                                                 </a>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div class="product-content">
-                                        <div class="product-info">
-                                            <h3 class="product-title"><a href="#"><?php echo $p_name; ?></a></h3>
-                                            <div class="product-price"><span>PKR <?php echo number_format($price); ?></span></div>
-                                        </div>
-                                        <a href="<?php echo $wa_link; ?>" target="_blank" class="product-cart-btn" data-tooltip="tooltip" title="Order on WhatsApp">
-                                            <i class="fab fa-whatsapp"></i>
-                                        </a>
-                                    </div>
-                                </div>
                                 <?php 
                                     } 
-                                } else { echo "<p>No products found.</p>"; }
+                                } else { 
+                                    echo "<div class='col-12 text-center'><p>No products found.</p></div>"; 
+                                }
                                 ?>
                             </div>
                         </div>
@@ -441,7 +456,7 @@
         <!-- small banner end -->
 
 
-        <!-- trending item -->
+        <!-- trending item dynamic -->
         <div class="product-area">
             <div class="container">
                 <div class="row">
@@ -454,66 +469,82 @@
                 </div>
                 <div class="product-wrap wow fadeInUp" data-wow-delay=".25s">
                     <div class="product-slider owl-carousel owl-theme">
-                                                            
                         <?php
                         // JOIN QUERY + RANDOM ORDER
                         $sql = "SELECT products.*, categories.cat_name 
                                 FROM products 
                                 LEFT JOIN categories ON products.category_id = categories.id 
                                 ORDER BY RAND() LIMIT 6";
-                        
+
                         $res = mysqli_query($conn, $sql);
-                                                            
+
                         if (mysqli_num_rows($res) > 0) {
                             while ($row = mysqli_fetch_assoc($res)) {
-                                                            
-                                $p_name = $row['name'];
+
+                                // --- 1. DATA PREPARATION (Safe Variables) ---
+                                $p_name = htmlspecialchars($row['name'], ENT_QUOTES, 'UTF-8');
                                 $price = $row['price'];
-                                $img_src = "uploads/" . $row['image'];
+                                $p_details = htmlspecialchars($row['details'], ENT_QUOTES, 'UTF-8');
+
+                                // Tag & Category
                                 $db_tag = isset($row['product_tag']) ? $row['product_tag'] : 'New';
-                                $cat_name = isset($row['cat_name']) ? $row['cat_name'] : 'General'; // Category Name
-                                                            
+                                $p_tag = htmlspecialchars($db_tag, ENT_QUOTES, 'UTF-8');
+
+                                $cat_name = isset($row['cat_name']) ? $row['cat_name'] : 'General';
+                                $p_cat = htmlspecialchars($cat_name, ENT_QUOTES, 'UTF-8');
+
+                                // Image Logic
+                                $db_img = "uploads/" . $row['image'];
+                                $final_img = file_exists($db_img) ? $db_img : 'assets/img/product/01.png';
+
+                                // Badge Logic
                                 $badge_class = 'new';
-                                if (strtolower($db_tag) == 'hot') { $badge_class = 'hot'; }
-                                elseif (strtolower($db_tag) == 'sale') { $badge_class = 'discount'; }
-                                elseif (strtolower($db_tag) == 'out of stock') { $badge_class = 'oos'; }
-                                                            
-                                $wa_link = "https://wa.me/923350391951?text=" . urlencode("Salam! Trending Item: $p_name");
+                                $t_low = strtolower($db_tag);
+                                if ($t_low == 'hot') { $badge_class = 'hot'; }
+                                elseif ($t_low == 'sale') { $badge_class = 'discount'; }
+                                elseif ($t_low == 'out of stock') { $badge_class = 'oos'; }
+
+                                // WhatsApp Link
+                                $wa_link = "https://wa.me/923350391951?text=" . urlencode("Salam! Trending Item: " . $row['name']);
                         ?>
-                        <div class="product-item">
-                            <div class="product-img">
-                                <span class="type <?php echo $badge_class; ?>"><?php echo $db_tag; ?></span>
-                                <a href="shop.php">
-                                    <?php if(file_exists($img_src)): ?>
-                                        <img src="<?php echo $img_src; ?>" alt="<?php echo $p_name; ?>" style="height: 280px; object-fit: cover;">
-                                    <?php else: ?>
-                                        <img src="assets/img/product/01.png" alt="Dummy" style="height: 280px; object-fit: cover;">
-                                    <?php endif; ?>
-                                </a>
-                                <div class="product-action-wrap">
-                                    <div class="product-action">
-                                        <a href="javascript:void(0);" 
-                                           onclick='openQuickView(<?php echo json_encode($row); ?>, "<?php echo $cat_name; ?>")' 
-                                           data-bs-toggle="modal" data-bs-target="#quickview" data-tooltip="tooltip" title="Quick View">
-                                           <i class="far fa-eye"></i>
+                                <div class="product-item">
+                                    <div class="product-img">
+                                        <span class="type <?php echo $badge_class; ?>"><?php echo $p_tag; ?></span>
+                                        <a href="shop.php">
+                                            <img src="<?php echo $final_img; ?>" alt="<?php echo $p_name; ?>" style="height: 280px; object-fit: cover;">
+                                        </a>
+                                        <div class="product-action-wrap">
+                                            <div class="product-action">
+                                                <a href="javascript:void(0);" 
+                                                   onclick="openQuickView(this)"
+                                                   data-name="<?php echo $p_name; ?>"
+                                                   data-price="<?php echo $price; ?>"
+                                                   data-details="<?php echo $p_details; ?>"
+                                                   data-image="<?php echo $final_img; ?>"
+                                                   data-tag="<?php echo $p_tag; ?>"
+                                                   data-category="<?php echo $p_cat; ?>"
+                                                   data-bs-toggle="modal" data-bs-target="#quickview" 
+                                                   data-tooltip="tooltip" title="Quick View">
+                                                   <i class="far fa-eye"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="product-content">
+                                        <div class="product-info">
+                                            <h3 class="product-title"><a href="shop.php"><?php echo $p_name; ?></a></h3>
+                                            <div class="product-price"><span>PKR <?php echo number_format($price); ?></span></div>
+                                        </div>
+                                        <a href="<?php echo $wa_link; ?>" target="_blank" class="product-cart-btn" data-tooltip="tooltip" title="Order on WhatsApp">
+                                            <i class="fab fa-whatsapp"></i>
                                         </a>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="product-content">
-                                <div class="product-info">
-                                    <h3 class="product-title"><a href="#"><?php echo $p_name; ?></a></h3>
-                                    
-                                    <div class="product-price"><span>PKR <?php echo number_format($price); ?></span></div>
-                                </div>
-                                <a href="<?php echo $wa_link; ?>" target="_blank" class="product-cart-btn" data-tooltip="tooltip" title="Order on WhatsApp">
-                                    <i class="fab fa-whatsapp"></i>
-                                </a>
-                            </div>
-                        </div>
                         <?php 
                             } 
-                        } else { echo "<p>No trending items found.</p>"; }
+                        } else { 
+                            echo "<div class='col-12 text-center'><p>No trending items found.</p></div>"; 
+                        }
                         ?>
                     </div>
                 </div>
@@ -604,10 +635,10 @@
                                     <div class="product-list-box">
                                         <div class="product-list-item">
                                             <div class="product-list-img">
-                                                <a href="shop-single.html"><img src="assets/img/product/01.png" alt="#"></a>
+                                                <a href="#"><img src="assets/img/product/01.png" alt="#"></a>
                                             </div>
                                             <div class="product-list-content">
-                                                <h4><a href="shop-single.html">Special Gift Box</a></h4>
+                                                <h4><a href="#">Special Gift Box</a></h4>
                                                 <div class="product-list-rate">
                                                     <i class="fas fa-star"></i>
                                                     <i class="fas fa-star"></i>
@@ -624,10 +655,10 @@
                                         </div>
                                         <div class="product-list-item">
                                             <div class="product-list-img">
-                                                <a href="shop-single.html"><img src="assets/img/product/02.png" alt="#"></a>
+                                                <a href="#"><img src="assets/img/product/02.png" alt="#"></a>
                                             </div>
                                             <div class="product-list-content">
-                                                <h4><a href="shop-single.html">Special Gift Box</a></h4>
+                                                <h4><a href="#">Special Gift Box</a></h4>
                                                 <div class="product-list-rate">
                                                     <i class="fas fa-star"></i>
                                                     <i class="fas fa-star"></i>
@@ -644,10 +675,10 @@
                                         </div>
                                         <div class="product-list-item">
                                             <div class="product-list-img">
-                                                <a href="shop-single.html"><img src="assets/img/product/03.png" alt="#"></a>
+                                                <a href="#"><img src="assets/img/product/03.png" alt="#"></a>
                                             </div>
                                             <div class="product-list-content">
-                                                <h4><a href="shop-single.html">Special Gift Box</a></h4>
+                                                <h4><a href="#">Special Gift Box</a></h4>
                                                 <div class="product-list-rate">
                                                     <i class="fas fa-star"></i>
                                                     <i class="fas fa-star"></i>
@@ -668,10 +699,10 @@
                                     <div class="product-list-box">
                                         <div class="product-list-item">
                                             <div class="product-list-img">
-                                                <a href="shop-single.html"><img src="assets/img/product/01.png" alt="#"></a>
+                                                <a href="#"><img src="assets/img/product/01.png" alt="#"></a>
                                             </div>
                                             <div class="product-list-content">
-                                                <h4><a href="shop-single.html">Special Gift Box</a></h4>
+                                                <h4><a href="#">Special Gift Box</a></h4>
                                                 <div class="product-list-rate">
                                                     <i class="fas fa-star"></i>
                                                     <i class="fas fa-star"></i>
@@ -688,10 +719,10 @@
                                         </div>
                                         <div class="product-list-item">
                                             <div class="product-list-img">
-                                                <a href="shop-single.html"><img src="assets/img/product/02.png" alt="#"></a>
+                                                <a href="#"><img src="assets/img/product/02.png" alt="#"></a>
                                             </div>
                                             <div class="product-list-content">
-                                                <h4><a href="shop-single.html">Special Gift Box</a></h4>
+                                                <h4><a href="#">Special Gift Box</a></h4>
                                                 <div class="product-list-rate">
                                                     <i class="fas fa-star"></i>
                                                     <i class="fas fa-star"></i>
@@ -708,10 +739,10 @@
                                         </div>
                                         <div class="product-list-item">
                                             <div class="product-list-img">
-                                                <a href="shop-single.html"><img src="assets/img/product/03.png" alt="#"></a>
+                                                <a href="#"><img src="assets/img/product/03.png" alt="#"></a>
                                             </div>
                                             <div class="product-list-content">
-                                                <h4><a href="shop-single.html">Special Gift Box</a></h4>
+                                                <h4><a href="#">Special Gift Box</a></h4>
                                                 <div class="product-list-rate">
                                                     <i class="fas fa-star"></i>
                                                     <i class="fas fa-star"></i>
@@ -732,10 +763,10 @@
                                     <div class="product-list-box">
                                         <div class="product-list-item">
                                             <div class="product-list-img">
-                                                <a href="shop-single.html"><img src="assets/img/product/01.png" alt="#"></a>
+                                                <a href="#"><img src="assets/img/product/01.png" alt="#"></a>
                                             </div>
                                             <div class="product-list-content">
-                                                <h4><a href="shop-single.html">Special Gift Box</a></h4>
+                                                <h4><a href="#">Special Gift Box</a></h4>
                                                 <div class="product-list-rate">
                                                     <i class="fas fa-star"></i>
                                                     <i class="fas fa-star"></i>
@@ -752,10 +783,10 @@
                                         </div>
                                         <div class="product-list-item">
                                             <div class="product-list-img">
-                                                <a href="shop-single.html"><img src="assets/img/product/02.png" alt="#"></a>
+                                                <a href="#"><img src="assets/img/product/02.png" alt="#"></a>
                                             </div>
                                             <div class="product-list-content">
-                                                <h4><a href="shop-single.html">Special Gift Box</a></h4>
+                                                <h4><a href="#">Special Gift Box</a></h4>
                                                 <div class="product-list-rate">
                                                     <i class="fas fa-star"></i>
                                                     <i class="fas fa-star"></i>
@@ -772,10 +803,10 @@
                                         </div>
                                         <div class="product-list-item">
                                             <div class="product-list-img">
-                                                <a href="shop-single.html"><img src="assets/img/product/03.png" alt="#"></a>
+                                                <a href="#"><img src="assets/img/product/03.png" alt="#"></a>
                                             </div>
                                             <div class="product-list-content">
-                                                <h4><a href="shop-single.html">Special Gift Box</a></h4>
+                                                <h4><a href="#">Special Gift Box</a></h4>
                                                 <div class="product-list-rate">
                                                     <i class="fas fa-star"></i>
                                                     <i class="fas fa-star"></i>
@@ -859,7 +890,7 @@
         <!-- funfact end -->
 
 
-        <!-- deal area -->
+        <!-- deal area dynamic -->
         <div class="deal-area deal-bg deal-negative py-100">
             <div class="container">
 
@@ -881,7 +912,6 @@
                     </div>
 
                     <div class="product-slider owl-carousel owl-theme">
-    
                         <?php
                         // JOIN QUERY
                         $sql = "SELECT products.*, categories.cat_name 
@@ -894,52 +924,72 @@
                         if (mysqli_num_rows($res) > 0) {
                             while ($row = mysqli_fetch_assoc($res)) {
 
-                                $p_name = $row['name'];
+                                // --- 1. DATA PREPARATION (Safe Variables) ---
+                                $p_name = htmlspecialchars($row['name'], ENT_QUOTES, 'UTF-8');
                                 $price = $row['price'];
-                                $img_src = "uploads/" . $row['image'];
+                                $p_details = htmlspecialchars($row['details'], ENT_QUOTES, 'UTF-8');
+
+                                // Tag & Category
                                 $db_tag = isset($row['product_tag']) ? $row['product_tag'] : 'Sale';
-                                $cat_name = isset($row['cat_name']) ? $row['cat_name'] : 'Deal'; // Category Name
+                                $p_tag = htmlspecialchars($db_tag, ENT_QUOTES, 'UTF-8');
 
+                                $cat_name = isset($row['cat_name']) ? $row['cat_name'] : 'Deal';
+                                $p_cat = htmlspecialchars($cat_name, ENT_QUOTES, 'UTF-8');
+
+                                // Image Logic
+                                $db_img = "uploads/" . $row['image'];
+                                $final_img = file_exists($db_img) ? $db_img : 'assets/img/product/01.png';
+
+                                // Badge Logic
                                 $badge_class = 'discount';
-                                if (strtolower($db_tag) == 'new') { $badge_class = 'new'; }
-                                elseif (strtolower($db_tag) == 'hot') { $badge_class = 'hot'; }
-                                elseif (strtolower($db_tag) == 'out of stock') { $badge_class = 'oos'; }
+                                $t_low = strtolower($db_tag);
+                                if ($t_low == 'new') { $badge_class = 'new'; }
+                                elseif ($t_low == 'hot') { $badge_class = 'hot'; }
+                                elseif ($t_low == 'out of stock') { $badge_class = 'oos'; }
 
-                                $wa_link = "https://wa.me/923350391951?text=" . urlencode("Salam! Deal: $p_name");
+                                // WhatsApp Link
+                                $phone = "923350391951";
+                                $wa_msg = urlencode("Salam! Deal: " . $row['name']);
+                                $wa_link = "https://wa.me/$phone?text=$wa_msg";
                         ?>
-                        <div class="product-item">
-                            <div class="product-img">
-                                <span class="type <?php echo $badge_class; ?>"><?php echo $db_tag; ?></span>
-                                <a href="shop.php">
-                                    <?php if(file_exists($img_src)): ?>
-                                        <img src="<?php echo $img_src; ?>" alt="<?php echo $p_name; ?>" style="height: 280px; object-fit: cover;">
-                                    <?php else: ?>
-                                        <img src="assets/img/product/01.png" alt="Dummy" style="height: 280px; object-fit: cover;">
-                                    <?php endif; ?>
-                                </a>
-                                <div class="product-action-wrap">
-                                    <div class="product-action">
-                                        <a href="javascript:void(0);" 
-                                           onclick='openQuickView(<?php echo json_encode($row); ?>, "<?php echo $cat_name; ?>")' 
-                                           data-bs-toggle="modal" data-bs-target="#quickview" data-tooltip="tooltip" title="Quick View">
-                                           <i class="far fa-eye"></i>
+                                <div class="product-item">
+                                    <div class="product-img">
+                                        <span class="type <?php echo $badge_class; ?>"><?php echo $p_tag; ?></span>
+                                        <a href="shop.php">
+                                            <img src="<?php echo $final_img; ?>" alt="<?php echo $p_name; ?>" style="height: 280px; object-fit: cover;">
+                                        </a>
+                                        <div class="product-action-wrap">
+                                            <div class="product-action">
+                                                <a href="javascript:void(0);" 
+                                                   onclick="openQuickView(this)"
+                                                   data-name="<?php echo $p_name; ?>"
+                                                   data-price="<?php echo $price; ?>"
+                                                   data-details="<?php echo $p_details; ?>"
+                                                   data-image="<?php echo $final_img; ?>"
+                                                   data-tag="<?php echo $p_tag; ?>"
+                                                   data-category="<?php echo $p_cat; ?>"
+                                                   data-bs-toggle="modal" data-bs-target="#quickview" 
+                                                   data-tooltip="tooltip" title="Quick View">
+                                                   <i class="far fa-eye"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="product-content">
+                                        <div class="product-info">
+                                            <h3 class="product-title"><a href="shop.php"><?php echo $p_name; ?></a></h3>
+                                            <div class="product-price"><span>PKR <?php echo number_format($price); ?></span></div>
+                                        </div>
+                                        <a href="<?php echo $wa_link; ?>" target="_blank" class="product-cart-btn" data-tooltip="tooltip" title="Order on WhatsApp">
+                                            <i class="fab fa-whatsapp"></i>
                                         </a>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="product-content">
-                                <div class="product-info">
-                                    <h3 class="product-title"><a href="#"><?php echo $p_name; ?></a></h3>
-                                    <div class="product-price"><span>PKR <?php echo number_format($price); ?></span></div>
-                                </div>
-                                <a href="<?php echo $wa_link; ?>" target="_blank" class="product-cart-btn" data-tooltip="tooltip" title="Order on WhatsApp">
-                                    <i class="fab fa-whatsapp"></i>
-                                </a>
-                            </div>
-                        </div>
                         <?php 
                             } 
-                        } else { echo "<div class='col-12 text-center text-white'><p>No deals available.</p></div>"; }
+                        } else { 
+                            echo "<div class='col-12 text-center'><p>No deals available.</p></div>"; 
+                        }
                         ?>
                     </div>
                 </div>
@@ -1427,21 +1477,21 @@
                         <div class="col-lg-6 col-md-12 col-sm-12 col-xs-12">
                             <img id="qv_image" src="" alt="Product Image" style="width: 100%; height: 450px; object-fit: cover; border-radius: 10px;">
                         </div>
-                                        
+                                    
                         <div class="col-lg-6 col-md-12 col-sm-12 col-xs-12">
                             <div class="quickview-content">
-                                        
+                                    
                                 <h4 id="qv_title" class="quickview-title">Product Name</h4>
-                                        
+                                    
                                 <div class="quickview-price">
                                     <h5><span id="qv_price">PKR 0</span></h5>
                                 </div>
-                                        
+                                    
                                 <ul class="quickview-list">
                                     <li>Category: <span id="qv_category" style="font-weight:600; color:#333;">-</span></li>
                                     <li>Tag: <span id="qv_tag" class="badge" style="background-color:var(--theme-color); color:white; padding:5px 10px; border-radius:5px;">-</span></li>
                                 </ul>
-                                        
+                                    
                                 <div class="quickview-cart" style="margin-bottom: 20px;">
                                     <a id="qv_wa_link" href="#" target="_blank" class="theme-btn" style="width: 100%; text-align: center;">
                                         <i class="fab fa-whatsapp"></i> Order on WhatsApp
@@ -1451,15 +1501,14 @@
                                 <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px;">
                                     <h6 style="font-size: 14px; font-weight: 700; margin-bottom: 8px; color: #333;">Description:</h6>
                                     <div id="qv_details" class="custom-scroll" 
-                                         style="max-height: 100px; overflow-y: auto; font-size: 14px; line-height: 1.6; color: #666; padding-right: 5px;">
-                                        </div>
+                                     style="white-space: pre-line; max-height: 100px; overflow-y: auto; font-size: 14px; line-height: 1.6; color: #666; padding-right: 5px;">
+                                    </div>
                                 </div>
-                                        
+                                    
                                 <div class="quickview-social" style="border-top: 1px solid #eee; padding-top: 15px;">
                                     <span>Share:</span>
-                                    <a href="#"><i class="fab fa-facebook-f"></i></a>
-                                    <a href="#"><i class="fab fa-instagram"></i></a>
-                                    <a href="#"><i class="fab fa-twitter"></i></a>
+                                    <a href="https://www.facebook.com/share/1BfUiUneiH/?mibextid=wwXIfr"><i class="fab fa-facebook-f"></i></a>
+                                    <a href="https://www.instagram.com/customizeworld8"><i class="fab fa-instagram"></i></a>
                                 </div>
 
                             </div>
@@ -1491,26 +1540,30 @@
 
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"1190e059c5bc497bafd35e121aae37b1","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
     <script>
-        function openQuickView(product, categoryName) {
-            // 1. Basic Data Set
-            document.getElementById('qv_title').innerText = product.name;
-            document.getElementById('qv_price').innerText = "PKR " + new Intl.NumberFormat().format(product.price);
+        function openQuickView(element) {
+            // 1. Data Attributes se values uthao
+            var name = element.getAttribute('data-name');
+            var price = element.getAttribute('data-price');
+            var details = element.getAttribute('data-details');
+            var image = element.getAttribute('data-image');
+            var tag = element.getAttribute('data-tag');
+            var category = element.getAttribute('data-category');
+
+            // 2. Data ko Modal mein bharna
+            document.getElementById('qv_title').innerText = name;
+            document.getElementById('qv_price').innerText = "PKR " + new Intl.NumberFormat().format(price);
+            document.getElementById('qv_category').innerText = category;
+            document.getElementById('qv_tag').innerText = tag;
                                         
-            // 2. Dynamic Category & Tag
-            document.getElementById('qv_category').innerText = categoryName;
-                                        
-            // Tag Logic: Agar koi tag nahi hai to 'New' dikhaye
-            var tagText = product.product_tag ? product.product_tag : 'New';
-            document.getElementById('qv_tag').innerText = tagText;
-            // 3. Description (HTML Support)
-            var desc = product.details ? product.details : "No description available.";
+            // Description check
+            var desc = details ? details : "No description available.";
             document.getElementById('qv_details').innerHTML = desc;
-            // 4. Image Path
-            var imgPath = "uploads/" + product.image;
-            document.getElementById('qv_image').src = imgPath;
-            // 5. WhatsApp Link Logic
-            var phone = "923350391951"; // Apna number yahan daalein
-            var msg = encodeURIComponent("Salam! I want to order from Quick View: " + product.name + " - Price: " + product.price);
+
+            document.getElementById('qv_image').src = image;
+
+            // 3. WhatsApp Link Update
+            var phone = "923350391951"; 
+            var msg = encodeURIComponent("Salam! I want to order: " + name + " - Price: " + price);
             document.getElementById('qv_wa_link').href = "https://wa.me/" + phone + "?text=" + msg;
         }
     </script>
